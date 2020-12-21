@@ -30,15 +30,39 @@ class Decoder(nn.Module):
 
 class DistMult(Decoder):
 
-    def __init__(self, e):
+    def __init__(self, e, var):
         super().__init__(e)
+        self.var = var
+        self.z_dim = e
+
+    def encode(self, s, r, o, e_embed, r_embed):
+        """
+        """
+        bs = s.shape[0]
+        # reparametrization
+        z_s = self.reparameterize(e_embed[s,:])
+        z_r = self.reparameterize(r_embed[r,:])
+        z_o = self.reparameterize(e_embed[o,:])
+        return (z_s, z_r, z_o)
+
+    def reparameterize(self, mean_logvar):
+        """
+        Reparametrization trick.
+        """
+        self.mean = mean = mean_logvar[:, :, :self.z_dim]
+        self.logvar = logvar = mean_logvar[:, :, self.z_dim:]
+        if self.var:
+            eps = torch.normal(torch.zeros_like(mean), std=1.).to(d())
+        else:
+            eps = 1.
+        return eps * torch.exp(logvar * .5) + mean
 
     def forward(self, si, pi, oi, nodes, relations):
         """
         Implements the distmult score function.
         """
 
-        s, p, o = nodes[si, :], relations[pi, :], nodes[oi, :]
+        s, p, o = self.encode(si, pi, oi, nodes, relations)
 
         if len(s.size()) == len(p.size()) == len(o.size()): # optimizations for common broadcasting
             if pi.size(-1) == 1 and oi.size(-1) == 1:
@@ -99,7 +123,7 @@ class LinkPredictor(nn.Module):
     """
 
     def __init__(self, triples, n, r, embedding=512, decoder='distmult', edropout=None, rdropout=None, init=0.85,
-                 biases=False, init_method='uniform', init_parms=(-1.0, 1.0), reciprocal=False):
+                 biases=False, init_method='uniform', init_parms=(-1.0, 1.0), reciprocal=False, var: bool=True):
 
         super().__init__()
 
@@ -108,10 +132,11 @@ class LinkPredictor(nn.Module):
         self.n, self.r = n, r
         self.e = embedding
         self.reciprocal = reciprocal
+        self.ver = var
 
-        self.entities  = nn.Parameter(torch.FloatTensor(n, self.e))
+        self.entities  = nn.Parameter(torch.FloatTensor(n, 2*self.e))
         initialize(self.entities, init_method, init_parms)
-        self.relations = nn.Parameter(torch.FloatTensor(r, self.e))
+        self.relations = nn.Parameter(torch.FloatTensor(r, 2*self.e))
         initialize(self.relations, init_method, init_parms)
 
         if reciprocal:
@@ -119,7 +144,7 @@ class LinkPredictor(nn.Module):
             initialize(self.relations, init_method, init_parms)
 
         if decoder == 'distmult':
-            self.decoder = DistMult(embedding)
+            self.decoder = DistMult(embedding, var)
         elif decoder == 'transe':
             self.decoder = TransE(embedding)
         else:
@@ -137,6 +162,8 @@ class LinkPredictor(nn.Module):
 
             if reciprocal:
                 self.pbias_bw = nn.Parameter(torch.zeros((r,)))
+    
+    
 
     def forward(self, s, p, o, recip=None):
         """

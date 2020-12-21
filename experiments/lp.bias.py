@@ -78,10 +78,25 @@ def prt(str, end='\n'):
     if repeats == 1:
         print(str, end=end)
 
+def kl_divergence(mean, logvar, raxis=1):
+    """
+    KL divergence between N(mean,std) and the standard normal N(0,1).
+    Args:
+        mean: mean of a normal dist.
+        logvar: log variance (log(std**2)) of a normal dist.
+    Returns Kl divergence in batch shape.
+    """
+    kl_term = 1/2 * torch.sum((logvar.exp() + mean.pow(2) - logvar - 1), dim=raxis)
+    
+    return kl_term.unsqueeze(-1)
+
+
 def go(arg):
 
     global repeats
     repeats = arg.repeats
+
+    beta = arg.beta
 
     tbdir = arg.tb_dir if arg.tb_dir is not None else os.path.join('./runs', get_slug(arg))[:250]
     tbw = SummaryWriter(log_dir=tbdir)
@@ -219,7 +234,10 @@ def go(arg):
 
                         tic()
                         if arg.loss == 'bce':
-                            loss = F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred)
+                            recon_loss = F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred)
+                            reg_loss = torch.mean(kl_divergence(model.decoder.mean, model.decoder.logvar))
+                            loss =  recon_loss - beta * reg_loss
+                            print(loss)
                         elif arg.loss == 'ce':
                             loss = F.cross_entropy(out, labels, reduction=arg.lred)
 
@@ -327,7 +345,7 @@ if __name__ == "__main__":
     parser.add_argument("-B", "--batch-size",
                         dest="batch",
                         help="Nr of positive triples to consider per batch (negatives are added to this).",
-                        default=32, type=int)
+                        default=1024, type=int)
 
 
     parser.add_argument("--test-batch",
@@ -469,6 +487,10 @@ if __name__ == "__main__":
                         nargs=2,
                         default=(-1.0, 1.0), type=float)
 
+    parser.add_argument("--beta",
+                        dest="beta",
+                        help="beta for vae",
+                        default=1, type=float)
     options = parser.parse_args()
 
     print('OPTIONS ', options)
