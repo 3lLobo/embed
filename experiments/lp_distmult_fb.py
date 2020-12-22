@@ -337,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--epochs",
                         dest="epochs",
                         help="Size (nr of dimensions) of the input.",
-                        default=150, type=int)
+                        default=300, type=int)
 
     parser.add_argument("--eval-size",
                         dest="eval_size",
