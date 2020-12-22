@@ -1,0 +1,15 @@
+diff --git a/embed/__pycache__/lpmodels.cpython-38.pyc b/embed/__pycache__/lpmodels.cpython-38.pyc
+index 32f528c..5b37001 100644
+Binary files a/embed/__pycache__/lpmodels.cpython-38.pyc and b/embed/__pycache__/lpmodels.cpython-38.pyc differ
+diff --git a/experiments/lp.bias.py b/experiments/lp.bias.py
+index 73b6078..c6d5f33 100644
+--- a/experiments/lp.bias.py
++++ b/experiments/lp.bias.py
+@@ -323,6 +323,7 @@ def go(arg):
+ if __name__ == "__main__":
+ 
+     mp.set_start_method('spawn')
++    
+ 
+     ## Parse the command line options
+     parser = ArgumentParser()

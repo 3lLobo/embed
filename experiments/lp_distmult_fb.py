@@ -17,6 +17,7 @@ from argparse import ArgumentParser
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
+import wandb
 
 import multiprocessing as mp
 
@@ -141,11 +142,13 @@ def go(arg):
         model = embed.LinkPredictor(
             triples=train, n=len(i2n), r=len(i2r), embedding=arg.emb, biases=arg.biases,
             edropout = arg.edo, rdropout=arg.rdo, decoder=arg.decoder, reciprocal=arg.reciprocal,
-            init_method=arg.init_method, init_parms=arg.init_parms)
+            init_method=arg.init_method, init_parms=arg.init_parms, var=arg.var)
 
         if torch.cuda.is_available():
             prt('Using CUDA.')
             model.cuda()
+
+        wandb.watch(model)
 
         if arg.opt == 'adam':
             opt = torch.optim.Adam(model.parameters(), lr=arg.lr)
@@ -267,8 +270,10 @@ def go(arg):
                     sumloss += float(regloss.item())
                     regloss.backward()
                 rbackward += toc()
-
                 opt.step()
+
+                wandb.log({"reg loss": regloss.item()})
+                wandb.log({"loss": loss.item()})
 
                 tbw.add_scalar('biases/train_loss', float(loss.item()), seen)
 
@@ -303,7 +308,7 @@ def go(arg):
                         assert mrr == mrrs
 
                     print(f'epoch {e}: MRR {mrr:.4}\t hits@1 {hits[0]:.4}\t  hits@3 {hits[1]:.4}\t  hits@10 {hits[2]:.4}')
-
+                    wandb.log({'MRR': mrr, 'hits@1': hits[0], 'hits@3': hits[1], 'hits@10': hits[2], 'epoch': e})
                     tbw.add_scalar('biases/mrr', mrr, e)
                     tbw.add_scalar('biases/h@1', hits[0], e)
                     tbw.add_scalar('biases/h@3', hits[1], e)
@@ -315,15 +320,16 @@ def go(arg):
         test_mrrs.append(mrr)
 
     print('training finished.')
-
     temrrs = torch.tensor(test_mrrs)
+    wandb.log({'mean test MRR': temrrs.mean(), 'std test MRR': temrrs.std()})
     print(f'mean test MRR    {temrrs.mean():.3} ({temrrs.std():.3})  \t{test_mrrs}')
 
 
 if __name__ == "__main__":
 
     mp.set_start_method('spawn')
-    
+
+    wandb.login(key='6d802b44b97d25931bacec09c5f1095e6c28fe36')
 
     ## Parse the command line options
     parser = ArgumentParser()
@@ -362,28 +368,28 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--learn-rate",
                         dest="lr",
                         help="Learning rate",
-                        default=0.001, type=float)
+                        default=0.14118, type=float)
 
     parser.add_argument("-N", "--negative-rate",
                         dest="negative_rate",
                         help="Number of negatives for every positive (for s, p and o respectively)",
                         nargs=3,
-                        default=[10, 0, 10], type=int)
+                        default=[557, 0, 367], type=int)
 
     parser.add_argument("--reg-exp",
                         dest="reg_exp",
                         help="Regularizer exponent (1, 2, 3)",
-                        default=2, type=int)
+                        default=3, type=int)
 
     parser.add_argument("--reg-eweight",
                         dest="reg_eweight",
                         help="Regularizer weight entities",
-                        default=None, type=float)
+                        default=1.55e-10, type=float)
 
     parser.add_argument("--reg-rweight",
                         dest="reg_rweight",
                         help="Regularizer weight relations",
-                        default=None, type=float)
+                        default=3.93e-15, type=float)
 
     parser.add_argument("-D", "--dataset-name",
                         dest="name",
@@ -412,7 +418,7 @@ if __name__ == "__main__":
     parser.add_argument("--opt",
                         dest="opt",
                         help="Optimizer.",
-                        default='adam', type=str)
+                        default='adagrad', type=str)
 
     parser.add_argument("--momentum",
                         dest="momentum",
@@ -422,7 +428,7 @@ if __name__ == "__main__":
     parser.add_argument("--loss",
                         dest="loss",
                         help="Which loss function to use (bce, ce).",
-                        default='bce', type=str)
+                        default='ce', type=str)
 
     parser.add_argument("--corrupt-global", dest="corrupt_global",
                         help="If not set, corrupts the current batch as negative samples. If set, samples triples globally to corrupt.",
@@ -435,19 +441,19 @@ if __name__ == "__main__":
     parser.add_argument("--edropout",
                         dest="edo",
                         help="Entity dropout (applied just before encoder).",
-                        default=None, type=float)
+                        default=0.46, type=float)
 
     parser.add_argument("--rdropout",
                         dest="rdo",
                         help="Relation dropout (applied just before encoder).",
-                        default=None, type=float)
+                        default=0.36, type=float)
 
     parser.add_argument("--sched", dest="sched",
                         help="Enable scheduler.",
                         action="store_true")
 
     parser.add_argument("--limit-negatives", dest="limit_negatives",
-                        help="Sample oly negative heads that have appeared in the head position (and likewise for tails).",
+                        help="Sample only negative heads that have appeared in the head position (and likewise for tails).",
                         action="store_true")
 
     parser.add_argument("--reciprocal", dest="reciprocal",
@@ -461,7 +467,7 @@ if __name__ == "__main__":
     parser.add_argument("--patience",
                         dest="patience",
                         help="Plateau scheduler patience.",
-                        default=1, type=float)
+                        default=9, type=float)
 
     parser.add_argument("--loss-reduction",
                         dest="lred",
@@ -486,15 +492,20 @@ if __name__ == "__main__":
                         dest="init_parms",
                         help="Initializer parameters (uniform: interval bounds, normal: mean, std, glorot: gain). The second parameter is ignored for glorot init.",
                         nargs=2,
-                        default=(-1.0, 1.0), type=float)
+                        default=(-0.85, 0.85), type=float)
+
+    parser.add_argument("--vae", dest="var",
+                        help="train model with variational latent space.",
+                        action="store_true")
 
     parser.add_argument("--beta",
                         dest="beta",
                         help="beta for vae",
                         default=1, type=float)
+
     options = parser.parse_args()
 
     print('OPTIONS ', options)
+    wandb.init(config=options)
 
     go(options)
-
