@@ -272,8 +272,8 @@ def go(arg):
                 rbackward += toc()
                 opt.step()
 
-                wandb.log({"reg loss": regloss.item()})
-                wandb.log({"loss": loss.item()})
+                wandb.log({"reg loss": regloss.item(), 'epoch': e})
+                wandb.log({"loss": loss.item(), 'epoch': e})
 
                 tbw.add_scalar('biases/train_loss', float(loss.item()), seen)
 
