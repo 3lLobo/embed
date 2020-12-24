@@ -253,6 +253,7 @@ def go(arg):
                         tic()
                         loss.backward()
                         tbackward += toc()
+                        wandb.log({"loss": loss.item(), 'epoch': e})
                         # No step yet, we accumulate the gradients over all corruptions.
                         # -- this causes problems with modules like batchnorm, so be careful when porting.
 
@@ -273,9 +274,8 @@ def go(arg):
                 opt.step()
 
                 wandb.log({"reg loss": regloss.item(), 'epoch': e})
-                wandb.log({"loss": loss.item(), 'epoch': e})
 
-                tbw.add_scalar('biases/train_loss', float(loss.item()), seen)
+                # tbw.add_scalar('biases/train_loss', float(loss.item()), seen)
 
             if e == 0:
                 print(f'\n pred: forward {tforward:.4}, backward {tbackward:.4}')
