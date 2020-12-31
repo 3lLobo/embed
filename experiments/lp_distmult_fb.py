@@ -348,7 +348,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval-int",
                         dest="eval_int",
                         help="Nr. of epochs between intermediate evaluations",
-                        default=1, type=int)
+                        default=10, type=int)
 
     parser.add_argument("-B", "--batch-size",
                         dest="batch",
