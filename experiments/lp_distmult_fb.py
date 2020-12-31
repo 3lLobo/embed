@@ -106,8 +106,7 @@ def go(arg):
 
     test_mrrs = []
 
-    train, val, test, (n2i, i2n), (r2i, i2r) = \
-        embed.load(arg.name)
+    train, val, test, (n2i, i2n), (r2i, i2r) = embed.load(arg.name)
 
     # set of all triples (for filtering)
     alltriples = set()
@@ -237,10 +236,12 @@ def go(arg):
 
                         tic()
                         if arg.loss == 'bce':
-                            recon_loss = F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred)
-                            reg_loss = torch.mean(kl_divergence(model.decoder.mean, model.decoder.logvar))
-                            loss =  recon_loss - beta * reg_loss
-                            print(loss)
+                            if arg.elbo:
+                                recon_loss = F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred)
+                                reg_loss = torch.mean(kl_divergence(model.decoder.mean, model.decoder.logvar))
+                                loss =  recon_loss - beta * reg_loss
+                            else:
+                                loss = F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred)
                         elif arg.loss == 'ce':
                             loss = F.cross_entropy(out, labels, reduction=arg.lred)
 
@@ -347,7 +348,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval-int",
                         dest="eval_int",
                         help="Nr. of epochs between intermediate evaluations",
-                        default=10, type=int)
+                        default=1, type=int)
 
     parser.add_argument("-B", "--batch-size",
                         dest="batch",
@@ -496,6 +497,10 @@ if __name__ == "__main__":
 
     parser.add_argument("--vae", dest="var",
                         help="train model with variational latent space.",
+                        action="store_true")    
+                        
+    parser.add_argument("--elbo", dest="elbo",
+                        help="Use elbo as loss for bce.",
                         action="store_true")
 
     parser.add_argument("--beta",
@@ -506,6 +511,9 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     print('OPTIONS ', options)
-    wandb.init(config=options)
+    if options.final:
+        wandb.init(project='final_embed', config=options)
+    else:
+        wandb.init(config=options)
 
     go(options)

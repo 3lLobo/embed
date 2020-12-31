@@ -53,7 +53,7 @@ def filter_scores_(scores, batch, truedicts, head=True):
 
 def truedicts(all):
     """
-    Generates a pair of dictionairies containg all true tail and head completions.
+    Generates a pair of dictionaries containing all true tail and head completions.
 
     :param all: A list of 3-tuples containing all known true triples
     :return:

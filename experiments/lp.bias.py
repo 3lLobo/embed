@@ -234,10 +234,7 @@ def go(arg):
 
                         tic()
                         if arg.loss == 'bce':
-                            recon_loss = torch.log(F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred))
-                            reg_loss = torch.mean(kl_divergence(model.decoder.mean, model.decoder.logvar))
-                            loss =  - recon_loss + beta * reg_loss
-                            print(loss)
+                            loss = torch.log(F.binary_cross_entropy_with_logits(out, labels, weight=weight, reduction=arg.lred))
                         elif arg.loss == 'ce':
                             loss = F.cross_entropy(out, labels, reduction=arg.lred)
 

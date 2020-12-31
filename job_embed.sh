@@ -18,4 +18,4 @@ export PATH_TO_SOURCE=embed
 # Copy input data from home to scratch
 cp -R $HOME/$PATH_TO_SOURCE $TMPDIR
 cd $TMPDIR/rembed
-timeout 6h $PYTHON -u experiments/lp.bias.py 
+timeout 6h $PYTHON -u experiments/lp_distmult_fb.py -F --vae --elbo
