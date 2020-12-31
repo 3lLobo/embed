@@ -2,3 +2,6 @@
 runs/
 experiments/__pycache__/
 wandb/
+slurm*
+embed/__pycache__
+embed/util/__pycache__
